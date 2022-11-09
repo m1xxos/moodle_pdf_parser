@@ -24,6 +24,12 @@ s = Service(secrets.CHROME_DRIVER)
 driver = webdriver.Chrome(service=s, options=options)
 
 
+def remove(value, deletechars):
+    for c in deletechars:
+        value = value.replace(c, '')
+    return value
+
+
 def login_to_sdo():
     driver.get(secrets.COURSE_LINK)
     WebDriverWait(driver, timeout=10).until(ec.presence_of_element_located((By.NAME, "username")))
@@ -48,6 +54,7 @@ def course_name_folder():
 def scraper(course_path):
     WebDriverWait(driver, timeout=10).until(ec.presence_of_element_located((By.CLASS_NAME, "courseindex-section")))
     sections = driver.find_elements(By.CLASS_NAME, "courseindex-section")
+    j = 1
     for section in sections:
         i = 1
         time.sleep(1)
@@ -56,16 +63,25 @@ def scraper(course_path):
         section_name = section_name[1].get_attribute("innerHTML").strip()
         if section_name == "":
             section_name = "пустота"
-        section_path = os.path.join(course_path, section_name)
+        if j < 10:
+            jnumber = "0" + str(j)
+        else:
+            jnumber = j
+        section_path = os.path.join(course_path, str(jnumber) + "_" + section_name)
         if not os.path.exists(section_path):
             os.makedirs(section_path)
+
         section_elements = section.find_elements(By.TAG_NAME, 'div')
         section_elements = section_elements[1].find_element(By.TAG_NAME, 'ul')
         section_elements = section_elements.find_elements(By.TAG_NAME, 'li')
         for element in section_elements:
             WebDriverWait(driver, timeout=10).until(ec.presence_of_element_located((By.TAG_NAME, 'a')))
-            section_link = element.find_element(By.TAG_NAME, 'a')
+            try:
+                section_link = element.find_element(By.TAG_NAME, 'a')
+            except:
+                continue
             name = section_link.get_attribute('innerHTML').strip()
+            name = remove(name, '\/:*?"<>|')
             if i < 10:
                 number = "0" + str(i)
             else:
@@ -76,15 +92,20 @@ def scraper(course_path):
                 'filename': os.path.join(section_path, str(number) + name + ".pdf")
             })
             i = i + 1
+        j = j + 1
 
 
 def crawler():
     for item in links['links']:
         time.sleep(2)
         driver.get(item['link'])
+        if driver.find_elements(By.LINK_TEXT, "Следующая"):
+            course_id = item['link'].strip("https://sdo.sut.ru/mod/book/view.php?id=")
+            driver.get("https://sdo.sut.ru/mod/book/tool/print/index.php?id=" + course_id)
         base64code = driver.print_page()
         pdf_byte = b64decode(base64code, validate=True)
         print(item['filename'])
+
         with open(item['filename'], 'wb') as f:
             f.write(pdf_byte)
 
@@ -119,7 +140,7 @@ def pdf_merger(course_name):
     for pdf in all_pdfs:
         merger.append(pdf)
 
-    merger.write("courses/" + course_name + "/full_course.pdf")
+    merger.write("courses/" + course_name + "/" + str(course_name) + ".pdf")
     merger.close()
 
 
@@ -133,4 +154,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    pdf_merger("Информатика 2022")
+    pdf_merger("Английский язык (лексика, 1 семестр)")
