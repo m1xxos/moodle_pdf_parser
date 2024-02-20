@@ -3,13 +3,12 @@ import os
 import time
 from base64 import b64decode
 from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.print_page_options import PrintOptions
-from PyPDF2 import PdfFileMerger, PdfFileReader, PdfMerger, PdfReader, PdfWriter, PdfFileWriter
+from PyPDF2 import PdfMerger, PdfReader, PdfWriter
 from selenium.webdriver.chrome.options import Options
 from time import sleep
 
@@ -67,7 +66,8 @@ def scraper(course_path):
             jnumber = "0" + str(j)
         else:
             jnumber = j
-        section_path = os.path.join(course_path, str(jnumber) + "_" + section_name)
+        section_path = os.path.join(course_path, str(jnumber) + "_" + section_name.replace("", ""))
+
         if not os.path.exists(section_path):
             os.makedirs(section_path)
 
@@ -81,15 +81,16 @@ def scraper(course_path):
             except:
                 continue
             name = section_link.get_attribute('innerHTML').strip()
-            name = remove(name, '\/:*?"<>|')
+            name = remove(name, '/:*?"<>\\|')
             if i < 10:
                 number = "0" + str(i)
             else:
                 number = i
 
+            name = remove(name, '\t\n')
             links['links'].append({
                 'link': section_link.get_attribute('href'),
-                'filename': os.path.join(section_path, str(number) + name + ".pdf")
+                'filename': os.path.join(section_path, str(number) + "_" + name + ".pdf")
             })
             i = i + 1
         j = j + 1
@@ -113,25 +114,25 @@ def crawler():
 def pdf_merger(course_name):
     hdir = "courses/" + course_name
     for root, dirs, files in os.walk(hdir):
-        merger = PdfFileMerger()
+        merger = PdfMerger()
         print(files)
         for filename in files:
             if filename.endswith(".pdf"):
                 # print(filename)
                 filepath = os.path.join(root, filename)
 
-                ReadPDF = PdfFileReader(filepath)
-                pages = ReadPDF.numPages
-                output = PdfFileWriter()
+                ReadPDF = PdfReader(filepath)
+                pages = len(ReadPDF.pages)
+                output = PdfWriter()
                 for i in range(pages):
-                    ReadPDF = PdfFileReader(filepath)
-                    pageObj = ReadPDF.getPage(i)
-                    text = pageObj.extractText()
+                    ReadPDF = PdfReader(filepath)
+                    pageObj = ReadPDF.pages[i]
+                    text = pageObj.extract_text()
                     if len(text) > 0:
-                        output.addPage(pageObj)
+                        output.add_page(pageObj)
                 output.write(filepath)
 
-                merger.append(PdfFileReader(open(filepath, 'rb')))
+                merger.append(PdfReader(open(filepath, 'rb')))
 
         merger.write(os.path.join(hdir, os.path.basename(os.path.normpath(root)) + '.pdf'))
 
@@ -154,4 +155,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    pdf_merger("Английский язык (лексика, 1 семестр)")
+    pdf_merger("COURSE_NAME")
